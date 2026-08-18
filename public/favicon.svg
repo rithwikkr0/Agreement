@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="sealGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#B52B21"/>
+      <stop offset="70%" stop-color="#7A1717"/>
+      <stop offset="100%" stop-color="#4A0A0A"/>
+    </radialGradient>
+    <radialGradient id="goldGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F0D27A"/>
+      <stop offset="100%" stop-color="#C89B3C"/>
+    </radialGradient>
+  </defs>
+  <!-- Outer gold ring -->
+  <circle cx="32" cy="32" r="30" fill="none" stroke="url(#goldGrad)" stroke-width="2.5"/>
+  <!-- Main seal body -->
+  <circle cx="32" cy="32" r="26" fill="url(#sealGrad)"/>
+  <!-- Inner border -->
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#C89B3C" stroke-width="1" opacity="0.7"/>
+  <!-- Diamond pattern -->
+  <polygon points="32,10 54,32 32,54 10,32" fill="none" stroke="#C89B3C" stroke-width="0.8" opacity="0.5"/>
+  <!-- Center character symbol -->
+  <text x="32" y="38" text-anchor="middle" font-family="serif" font-size="18" font-weight="bold" fill="#F0D27A">盟</text>
+  <!-- Four corner dots -->
+  <circle cx="32" cy="14" r="1.5" fill="#C89B3C"/>
+  <circle cx="50" cy="32" r="1.5" fill="#C89B3C"/>
+  <circle cx="32" cy="50" r="1.5" fill="#C89B3C"/>
+  <circle cx="14" cy="32" r="1.5" fill="#C89B3C"/>
+</svg>
