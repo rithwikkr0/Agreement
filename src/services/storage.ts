@@ -17,19 +17,65 @@ export interface SigningSessionState {
   agreedToOath: boolean;
 }
 
-// Load all sealed members safely
+// Default founding members to populate slots
+export const defaultFoundingMembers: AgreementData[] = [
+  {
+    memberId: 'mem_leader_rithwik',
+    memberName: 'Rithwik',
+    role: 'Keeper of the Covenant / Team Leader',
+    agreementId: 'TC-26-RTWK01A8',
+    timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
+    status: 'sealed',
+    sealColor: '#7A1717',
+  },
+  {
+    memberId: 'mem_founding_2',
+    memberName: 'Arjun Sharma',
+    role: 'Lead Architect',
+    agreementId: 'TC-26-ARJN02B4',
+    timestamp: new Date(Date.now() - 3600000 * 6).toISOString(),
+    status: 'sealed',
+    sealColor: '#1D3930',
+  },
+  {
+    memberId: 'mem_founding_3',
+    memberName: 'Sneha Patel',
+    role: 'UI/UX & Creative Director',
+    agreementId: 'TC-26-SNEH03C9',
+    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
+    status: 'sealed',
+    sealColor: '#74532B',
+  },
+  {
+    memberId: 'mem_founding_4',
+    memberName: 'Vikram Rao',
+    role: 'Core Systems Engineer',
+    agreementId: 'TC-26-VKRM04D2',
+    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+    status: 'sealed',
+    sealColor: '#1A2C3D',
+  },
+];
+
+// Load all sealed members (defaults to founding members if empty)
 export function loadMembers(): AgreementData[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      // Initialize with default founding members
+      saveMembers(defaultFoundingMembers);
+      return defaultFoundingMembers;
+    }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
+    if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed.filter((item) => item && typeof item.memberName === 'string' && item.status === 'sealed');
     }
-    return [];
+    // If empty array, re-initialize with default founding members
+    saveMembers(defaultFoundingMembers);
+    return defaultFoundingMembers;
   } catch (err) {
     console.warn('Failed to load members from localStorage:', err);
-    return [];
+    return defaultFoundingMembers;
   }
 }
 
@@ -49,7 +95,10 @@ export function upsertMember(member: AgreementData): boolean {
   if (!member || !member.memberName) return false;
   const members = loadMembers();
   const idx = members.findIndex(
-    (m) => m.memberId === member.memberId || m.agreementId === member.agreementId || m.memberName.toLowerCase().trim() === member.memberName.toLowerCase().trim()
+    (m) =>
+      m.memberId === member.memberId ||
+      m.agreementId === member.agreementId ||
+      m.memberName.toLowerCase().trim() === member.memberName.toLowerCase().trim()
   );
   if (idx >= 0) {
     members[idx] = { ...members[idx], ...member, status: 'sealed' };
@@ -71,7 +120,9 @@ export function importSingleMember(member: AgreementData): { success: boolean; i
 
   const members = loadMembers();
   const existingIdx = members.findIndex(
-    (m) => m.agreementId === member.agreementId || m.memberName.toLowerCase().trim() === member.memberName.toLowerCase().trim()
+    (m) =>
+      m.agreementId === member.agreementId ||
+      m.memberName.toLowerCase().trim() === member.memberName.toLowerCase().trim()
   );
 
   if (existingIdx >= 0) {
@@ -138,11 +189,12 @@ export function clearCurrentSession(): void {
   } catch {}
 }
 
-// Reset all application data (with user confirmation)
+// Reset all application data back to default founding team
 export function resetAllData(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(CURRENT_SESSION_KEY);
+    saveMembers(defaultFoundingMembers);
   } catch (err) {
     console.warn('Reset error:', err);
   }
