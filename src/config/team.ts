@@ -13,7 +13,9 @@ export const teamConfig = {
   covenantVersion: "I",
   covenantYear: new Date().getFullYear(),
   foundingMembers: [
-    "Rithwik"
+    "Rithwik",
+    "Gopalakrishna D",
+    "NAGARAJA C"
   ],
 };
 

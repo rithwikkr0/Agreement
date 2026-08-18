@@ -5,8 +5,8 @@
 import type { AgreementData } from './agreement';
 export type { AgreementData };
 
-const STORAGE_KEY = 'imperial_covenant_members_v2';
-const CURRENT_SESSION_KEY = 'imperial_covenant_session_v2';
+const STORAGE_KEY = 'imperial_covenant_members_v3';
+const CURRENT_SESSION_KEY = 'imperial_covenant_session_v3';
 
 export interface SigningSessionState {
   step: number;
@@ -17,20 +17,38 @@ export interface SigningSessionState {
   agreedToOath: boolean;
 }
 
-// Leader only (no placeholder members)
+// Sealed members based on actual signed agreements
 export const defaultFoundingMembers: AgreementData[] = [
   {
     memberId: 'mem_leader_rithwik',
     memberName: 'Rithwik',
     role: 'Keeper of the Covenant / Team Leader',
     agreementId: 'TC-26-RTWK01A8',
-    timestamp: new Date().toISOString(),
+    timestamp: '2026-08-18T09:30:00.000Z',
     status: 'sealed',
     sealColor: '#7A1717',
   },
+  {
+    memberId: 'mem_gopalakrishna_d',
+    memberName: 'Gopalakrishna D',
+    role: 'Fellow Member',
+    agreementId: 'TC-26-A4U4QC8GPS',
+    timestamp: '2026-08-18T09:45:13.000Z',
+    status: 'sealed',
+    sealColor: '#1D3930',
+  },
+  {
+    memberId: 'mem_nagaraja_c',
+    memberName: 'NAGARAJA C',
+    role: 'Fellow Member',
+    agreementId: 'TC-26-BK5829AQ7Z',
+    timestamp: '2026-08-18T09:46:59.000Z',
+    status: 'sealed',
+    sealColor: '#74532B',
+  },
 ];
 
-// Load all sealed members
+// Load all sealed members (defaults to registered signed members)
 export function loadMembers(): AgreementData[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -160,7 +178,7 @@ export function clearCurrentSession(): void {
   } catch {}
 }
 
-// Reset all application data back to leader only
+// Reset all application data back to initial sealed records
 export function resetAllData(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);

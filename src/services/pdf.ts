@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════
 //  IMPERIAL COVENANT — Production Hardened PDF Service
+//  Pure Vector & Clean Typography (Zero Font Corruption)
 // ═══════════════════════════════════════════════════
 
 import jsPDF from 'jspdf';
@@ -28,13 +29,48 @@ function setColor(
   else doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
 }
 
+// Sanitize string to clean ASCII for jsPDF standard fonts
+function sanitizeText(str: string): string {
+  if (!str) return '';
+  return str.replace(/[^\x20-\x7E\r\n]/g, '').trim();
+}
+
+// Draw a geometric royal wax seal with pure vector lines
+function drawVectorSeal(doc: jsPDF, cx: number, cy: number, radius: number, label = 'TC') {
+  // Wax background
+  setColor(doc, RED, 'fill');
+  doc.circle(cx, cy, radius, 'F');
+
+  // Outer gold ring
+  setColor(doc, GOLD, 'draw');
+  doc.setLineWidth(1.2);
+  doc.circle(cx, cy, radius);
+
+  // Inner dashed gold ring
+  doc.setLineWidth(0.4);
+  doc.circle(cx, cy, radius - 2.5);
+
+  // Inner diamond emblem
+  const dSize = radius * 0.65;
+  doc.line(cx, cy - dSize, cx + dSize, cy);
+  doc.line(cx + dSize, cy, cx, cy + dSize);
+  doc.line(cx, cy + dSize, cx - dSize, cy);
+  doc.line(cx - dSize, cy, cx, cy - dSize);
+
+  // Center Monogram / Text
+  setColor(doc, BRIGHT_GOLD, 'text');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(radius > 20 ? 14 : 10);
+  doc.text(label, cx, cy + (radius > 20 ? 4.5 : 3.5), { align: 'center' });
+}
+
 // Draw standard imperial page frame and header
 function drawPageFrame(doc: jsPDF, pw: number, ph: number, pageTitle: string, pageNum: number, totalPages: number) {
   // Background
   setColor(doc, OBSIDIAN, 'fill');
   doc.rect(0, 0, pw, ph, 'F');
 
-  // Top Vermilion Header Banner
+  // Top Header Banner
   setColor(doc, RED, 'fill');
   doc.rect(0, 0, pw, 16, 'F');
   setColor(doc, GOLD, 'draw');
@@ -46,7 +82,7 @@ function drawPageFrame(doc: jsPDF, pw: number, ph: number, pageTitle: string, pa
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setCharSpace(2.5);
-  doc.text(pageTitle, pw / 2, 10.5, { align: 'center' });
+  doc.text(sanitizeText(pageTitle), pw / 2, 10.5, { align: 'center' });
   doc.setCharSpace(0);
 
   // Double gold borders
@@ -140,26 +176,14 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setCharSpace(3);
-  doc.text('THE IMPERIAL COVENANT  ◈  OFFICIAL CHARTER RECORD', pw / 2, 11, { align: 'center' });
+  doc.text('THE IMPERIAL COVENANT - OFFICIAL CHARTER RECORD', pw / 2, 11, { align: 'center' });
   doc.setCharSpace(0);
 
-  // Central Seal
+  // Central Royal Vector Seal
   const sealX = pw / 2;
   const sealY = 68;
   const sealR = 26;
-  setColor(doc, RED, 'fill');
-  doc.circle(sealX, sealY, sealR, 'F');
-  setColor(doc, GOLD, 'draw');
-  doc.setLineWidth(1.2);
-  doc.circle(sealX, sealY, sealR);
-  doc.setLineWidth(0.4);
-  doc.circle(sealX, sealY, sealR - 3);
-
-  // Inner Seal Emblem
-  setColor(doc, BRIGHT_GOLD, 'text');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text('盟', sealX, sealY + 7, { align: 'center' });
+  drawVectorSeal(doc, sealX, sealY, sealR, 'COVENANT');
 
   // Main Title
   let y = 108;
@@ -201,10 +225,10 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   setColor(doc, IVORY, 'text');
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(`Team: ${teamConfig.teamName}   |   Project: ${teamConfig.projectName}`, pw / 2, y + 13, { align: 'center' });
+  doc.text(`Team: ${sanitizeText(teamConfig.teamName)}   |   Project: ${sanitizeText(teamConfig.projectName)}`, pw / 2, y + 13, { align: 'center' });
   setColor(doc, AGED_PAPER, 'text');
   doc.setFontSize(8);
-  doc.text(`Keeper of the Covenant: ${teamConfig.leaderName || 'Team Leader'}`, pw / 2, y + 19, { align: 'center' });
+  doc.text(`Keeper of the Covenant: ${sanitizeText(teamConfig.leaderName || 'Team Leader')}`, pw / 2, y + 19, { align: 'center' });
 
   // Member Sealed Record Box
   y += 32;
@@ -224,16 +248,16 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   setColor(doc, IVORY, 'text');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(member.memberName, pw / 2, y + 16, { align: 'center' });
+  doc.text(sanitizeText(member.memberName), pw / 2, y + 16, { align: 'center' });
 
   setColor(doc, BRIGHT_GOLD, 'text');
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(member.role || 'Covenant Member', pw / 2, y + 23, { align: 'center' });
+  doc.text(sanitizeText(member.role || 'Covenant Member'), pw / 2, y + 23, { align: 'center' });
 
   setColor(doc, AGED_PAPER, 'text');
   doc.setFontSize(7.5);
-  doc.text(`Agreement ID: ${member.agreementId}`, pw / 2, y + 30, { align: 'center' });
+  doc.text(`Agreement ID: ${sanitizeText(member.agreementId)}`, pw / 2, y + 30, { align: 'center' });
   doc.text(`Sealed: ${formatImperialDate(member.timestamp)} at ${formatImperialTime(member.timestamp)}`, pw / 2, y + 36, { align: 'center' });
 
   setColor(doc, JADE, 'text');
@@ -268,11 +292,12 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
     setColor(doc, GOLD, 'text');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text(`ARTICLE ${art.romanNumeral}  ◈  ${art.subtitle}`, 16, artY);
+    const cleanSub = sanitizeText(art.subtitle).replace(/\s*\([^)]*\)/g, '');
+    doc.text(`ARTICLE ${art.romanNumeral}  --  ${cleanSub}`, 16, artY);
 
     setColor(doc, BRIGHT_GOLD, 'text');
     doc.setFontSize(10.5);
-    doc.text(art.title.toUpperCase(), 16, artY + 4.5);
+    doc.text(sanitizeText(art.title).toUpperCase(), 16, artY + 4.5);
 
     // Accent line
     setColor(doc, [80, 60, 30], 'draw');
@@ -283,7 +308,7 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
     setColor(doc, IVORY, 'text');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    const splitText = doc.splitTextToSize(art.text, pw - 32);
+    const splitText = doc.splitTextToSize(sanitizeText(art.text), pw - 32);
     doc.text(splitText, 16, artY + 11);
 
     artY += 15 + splitText.length * 3.5;
@@ -299,11 +324,12 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
     setColor(doc, GOLD, 'text');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text(`ARTICLE ${art.romanNumeral}  ◈  ${art.subtitle}`, 16, artY);
+    const cleanSub = sanitizeText(art.subtitle).replace(/\s*\([^)]*\)/g, '');
+    doc.text(`ARTICLE ${art.romanNumeral}  --  ${cleanSub}`, 16, artY);
 
     setColor(doc, BRIGHT_GOLD, 'text');
     doc.setFontSize(10.5);
-    doc.text(art.title.toUpperCase(), 16, artY + 4.5);
+    doc.text(sanitizeText(art.title).toUpperCase(), 16, artY + 4.5);
 
     // Accent line
     setColor(doc, [80, 60, 30], 'draw');
@@ -314,7 +340,7 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
     setColor(doc, IVORY, 'text');
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    const splitText = doc.splitTextToSize(art.text, pw - 32);
+    const splitText = doc.splitTextToSize(sanitizeText(art.text), pw - 32);
     doc.text(splitText, 16, artY + 11);
 
     artY += 15 + splitText.length * 3.5;
@@ -339,13 +365,13 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   setColor(doc, IVORY, 'text');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text(member.memberName, pw / 2, y, { align: 'center' });
+  doc.text(sanitizeText(member.memberName), pw / 2, y, { align: 'center' });
 
   y += 6;
   setColor(doc, BRIGHT_GOLD, 'text');
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(member.role || 'Covenant Member', pw / 2, y, { align: 'center' });
+  doc.text(sanitizeText(member.role || 'Covenant Member'), pw / 2, y, { align: 'center' });
 
   // Verification Data Table
   y += 10;
@@ -372,13 +398,13 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
     setColor(doc, value === 'SEALED & BINDING' ? JADE : IVORY, 'text');
     doc.setFont('helvetica', value === 'SEALED & BINDING' ? 'bold' : 'normal');
     doc.setFontSize(8);
-    doc.text(value, 75, metaY);
+    doc.text(sanitizeText(value), 75, metaY);
     metaY += 5.5;
   });
 
   y += 34;
 
-  // Dedicated Visual Boxes: Signature (Left/Top) & Identity Portrait (Right/Bottom)
+  // Dedicated Visual Boxes: Signature (Left) & Identity Portrait (Right)
   const boxWidth = 84;
   const sigBoxHeight = 44;
   const photoBoxHeight = 44;
@@ -430,7 +456,7 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   setColor(doc, INK, 'text');
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);
-  doc.text(`Signed by: ${member.memberName}`, sigX + boxWidth / 2, sigY + sigBoxHeight - 3, { align: 'center' });
+  doc.text(`Signed by: ${sanitizeText(member.memberName)}`, sigX + boxWidth / 2, sigY + sigBoxHeight - 3, { align: 'center' });
 
   // ── 2. Dedicated Identity Portrait Box ──
   const photoX = pw - 16 - boxWidth;
@@ -473,27 +499,15 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   doc.text('Identity Verified & Sealed', photoX + boxWidth / 2, photoY + photoBoxHeight - 3, { align: 'center' });
 
   // ── 3. Stamped Imperial Seal & Declaration ──
-  y += sigBoxHeight + 10;
+  y += sigBoxHeight + 8;
 
-  // Wax Seal on Bottom Right
   const finalSealX = pw / 2;
-  const finalSealY = y + 16;
-  const finalSealR = 15;
-  setColor(doc, RED, 'fill');
-  doc.circle(finalSealX, finalSealY, finalSealR, 'F');
-  setColor(doc, GOLD, 'draw');
-  doc.setLineWidth(0.8);
-  doc.circle(finalSealX, finalSealY, finalSealR);
-  doc.setLineWidth(0.2);
-  doc.circle(finalSealX, finalSealY, finalSealR - 2);
-
-  setColor(doc, BRIGHT_GOLD, 'text');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text('印', finalSealX, finalSealY + 4, { align: 'center' });
+  const finalSealY = y + 14;
+  const finalSealR = 14;
+  drawVectorSeal(doc, finalSealX, finalSealY, finalSealR, 'SEALED');
 
   // Final Oath Statement
-  y = finalSealY + finalSealR + 8;
+  y = finalSealY + finalSealR + 6;
   setColor(doc, GOLD, 'draw');
   doc.setLineWidth(0.2);
   doc.line(30, y, pw - 30, y);
@@ -501,7 +515,7 @@ export async function buildCovenantPDF(member: AgreementData): Promise<jsPDF> {
   y += 5;
   setColor(doc, IVORY, 'text');
   doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   const oathText =
     '"I have read, understood, and voluntarily agree to uphold the Twelve Articles of the Imperial Covenant for the entire duration of our teamwork."';
   const splitOath = doc.splitTextToSize(oathText, pw - 40);
