@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { AgreementData } from '../services/agreement';
 import { exportMembersJSON, resetAllData } from '../services/storage';
-import { generateCovenantPDF } from '../services/pdf';
+import { downloadCovenantPDF } from '../services/pdf';
 import { teamConfig } from '../config/team';
 import ImperialSeal from './ImperialSeal';
 import {
@@ -13,6 +13,7 @@ import {
   Clock,
   Eye,
   AlertTriangle,
+  Lock,
 } from 'lucide-react';
 import { formatImperialDate, formatImperialTime } from '../services/agreement';
 
@@ -40,8 +41,10 @@ export default function AdminDashboard({
     const a = document.createElement('a');
     a.href = url;
     a.download = `covenant-registry-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleConfirmReset = () => {
@@ -57,31 +60,34 @@ export default function AdminDashboard({
 
   return (
     <section className="relative w-full max-w-5xl mx-auto px-4 py-16">
-      {/* Header and Back navigation */}
+      {/* Header and Navigation */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <button
+          type="button"
           onClick={onBack}
-          className="text-xs font-cinzel text-imperial-gold/80 hover:text-bright-gold flex items-center gap-2 transition-colors cursor-pointer"
+          className="text-xs font-cinzel text-imperial-gold/80 hover:text-bright-gold flex items-center gap-2 transition-colors cursor-pointer bg-black/40 px-4 py-2 rounded border border-imperial-gold/30"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>BACK TO THE COVENANT</span>
+          <span>RETURN TO COVENANT</span>
         </button>
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handleExportJSON}
-            className="px-4 py-2 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/30 hover:border-imperial-gold flex items-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer"
+            className="px-4 py-2 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/30 hover:border-imperial-gold flex items-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
           >
             <FileCode className="w-4 h-4 text-bright-gold" />
             <span>EXPORT JSON</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setShowResetConfirm(true)}
-            className="px-4 py-2 rounded bg-ancient-red/20 text-vermilion hover:text-white border border-ancient-red/40 hover:border-vermilion flex items-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer"
+            className="px-4 py-2 rounded bg-ancient-red/25 text-vermilion hover:text-white border border-ancient-red/40 hover:border-vermilion flex items-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
           >
             <Trash2 className="w-4 h-4" />
-            <span>RESET LOCAL DATA</span>
+            <span>RESET LOCAL REGISTRY</span>
           </button>
         </div>
       </div>
@@ -97,17 +103,17 @@ export default function AdminDashboard({
               TEAM COVENANT REGISTRY
             </h2>
             <p className="text-xs text-aged-paper/70 font-noto mt-1">
-              Real-time local status of all member seals and signatures.
+              Real-time local status of all member seals, signatures, and agreement records.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="px-4 py-2 bg-obsidian rounded border border-imperial-gold/30 text-center">
-              <span className="text-[10px] font-cinzel text-imperial-gold/60 block">SEALED</span>
+              <span className="text-[10px] font-cinzel text-imperial-gold/60 block font-bold">SEALED</span>
               <span className="font-cinzel text-xl font-bold text-jade">{sealedCount}</span>
             </div>
             <div className="px-4 py-2 bg-obsidian rounded border border-imperial-gold/30 text-center">
-              <span className="text-[10px] font-cinzel text-imperial-gold/60 block">PENDING</span>
+              <span className="text-[10px] font-cinzel text-imperial-gold/60 block font-bold">PENDING</span>
               <span className="font-cinzel text-xl font-bold text-aged-paper/50">
                 {maxMembers - sealedCount}
               </span>
@@ -159,15 +165,19 @@ export default function AdminDashboard({
                       )}
                     </td>
                     <td className="py-4 px-3 text-ivory font-bold text-sm">
-                      {isSealed ? member.memberName : <span className="text-aged-paper/30 italic">Slot {formattedSlot} (Unassigned)</span>}
+                      {isSealed ? (
+                        member.memberName
+                      ) : (
+                        <span className="text-aged-paper/30 italic">Slot {formattedSlot} (Unassigned)</span>
+                      )}
                     </td>
                     <td className="py-4 px-3 text-aged-paper/80 font-noto">
                       {isSealed ? member.role || 'Member' : '—'}
                     </td>
-                    <td className="py-4 px-3 font-mono text-imperial-gold/80">
+                    <td className="py-4 px-3 font-mono text-bright-gold/90 font-semibold">
                       {isSealed ? member.agreementId : '—'}
                     </td>
-                    <td className="py-4 px-3 text-aged-paper/60 font-noto text-[11px]">
+                    <td className="py-4 px-3 text-aged-paper/70 font-noto text-[11px]">
                       {isSealed
                         ? `${formatImperialDate(member.timestamp)}`
                         : '—'}
@@ -187,6 +197,7 @@ export default function AdminDashboard({
                       {isSealed && (
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            type="button"
                             onClick={() => onViewMember(member)}
                             className="p-1.5 rounded bg-imperial-gold/10 hover:bg-imperial-gold/20 text-bright-gold border border-imperial-gold/30 transition-colors cursor-pointer"
                             title="View Member Record"
@@ -194,9 +205,10 @@ export default function AdminDashboard({
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => generateCovenantPDF(member)}
+                            type="button"
+                            onClick={() => downloadCovenantPDF(member)}
                             className="p-1.5 rounded bg-vermilion/20 hover:bg-vermilion/30 text-ivory border border-vermilion/40 transition-colors cursor-pointer"
-                            title="Export Member PDF"
+                            title="Download Member PDF"
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>
@@ -213,7 +225,7 @@ export default function AdminDashboard({
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="glass-dark imperial-border p-6 sm:p-8 rounded max-w-md w-full text-center space-y-4 animate-fade-up">
             <div className="w-12 h-12 rounded-full bg-ancient-red/20 border border-ancient-red flex items-center justify-center mx-auto text-vermilion">
               <AlertTriangle className="w-6 h-6" />
@@ -221,17 +233,19 @@ export default function AdminDashboard({
             <h3 className="font-cinzel text-lg font-bold text-ivory">
               PURGE ALL REGISTRY DATA?
             </h3>
-            <p className="text-xs text-aged-paper/70 font-noto">
-              This will erase all locally stored signatures, identity seals, and member records from this browser. This action cannot be undone.
+            <p className="text-xs text-aged-paper/70 font-noto leading-relaxed">
+              This will erase all locally stored signatures, identity portrait seals, and member records from this browser. This action cannot be undone.
             </p>
             <div className="pt-4 flex justify-center gap-3">
               <button
+                type="button"
                 onClick={() => setShowResetConfirm(false)}
-                className="px-5 py-2.5 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/20 text-xs font-cinzel"
+                className="px-5 py-2.5 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/20 text-xs font-cinzel cursor-pointer"
               >
                 CANCEL
               </button>
               <button
+                type="button"
                 onClick={handleConfirmReset}
                 className="px-5 py-2.5 rounded bg-ancient-red text-ivory hover:bg-vermilion text-xs font-cinzel font-bold shadow-lg cursor-pointer"
               >
