@@ -12,12 +12,8 @@ export const teamConfig = {
   minimumMembers: 4,
   covenantVersion: "I",
   covenantYear: new Date().getFullYear(),
-  // Founding members pre-configured into the slots
   foundingMembers: [
-    "Rithwik",
-    "Arjun Sharma",
-    "Sneha Patel",
-    "Vikram Rao"
+    "Rithwik"
   ],
 };
 

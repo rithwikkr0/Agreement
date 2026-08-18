@@ -5,8 +5,8 @@
 import type { AgreementData } from './agreement';
 export type { AgreementData };
 
-const STORAGE_KEY = 'imperial_covenant_members_v1';
-const CURRENT_SESSION_KEY = 'imperial_covenant_session_v1';
+const STORAGE_KEY = 'imperial_covenant_members_v2';
+const CURRENT_SESSION_KEY = 'imperial_covenant_session_v2';
 
 export interface SigningSessionState {
   step: number;
@@ -17,52 +17,24 @@ export interface SigningSessionState {
   agreedToOath: boolean;
 }
 
-// Default founding members to populate slots
+// Leader only (no placeholder members)
 export const defaultFoundingMembers: AgreementData[] = [
   {
     memberId: 'mem_leader_rithwik',
     memberName: 'Rithwik',
     role: 'Keeper of the Covenant / Team Leader',
     agreementId: 'TC-26-RTWK01A8',
-    timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
+    timestamp: new Date().toISOString(),
     status: 'sealed',
     sealColor: '#7A1717',
   },
-  {
-    memberId: 'mem_founding_2',
-    memberName: 'Arjun Sharma',
-    role: 'Lead Architect',
-    agreementId: 'TC-26-ARJN02B4',
-    timestamp: new Date(Date.now() - 3600000 * 6).toISOString(),
-    status: 'sealed',
-    sealColor: '#1D3930',
-  },
-  {
-    memberId: 'mem_founding_3',
-    memberName: 'Sneha Patel',
-    role: 'UI/UX & Creative Director',
-    agreementId: 'TC-26-SNEH03C9',
-    timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-    status: 'sealed',
-    sealColor: '#74532B',
-  },
-  {
-    memberId: 'mem_founding_4',
-    memberName: 'Vikram Rao',
-    role: 'Core Systems Engineer',
-    agreementId: 'TC-26-VKRM04D2',
-    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    status: 'sealed',
-    sealColor: '#1A2C3D',
-  },
 ];
 
-// Load all sealed members (defaults to founding members if empty)
+// Load all sealed members
 export function loadMembers(): AgreementData[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Initialize with default founding members
       saveMembers(defaultFoundingMembers);
       return defaultFoundingMembers;
     }
@@ -70,7 +42,6 @@ export function loadMembers(): AgreementData[] {
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed.filter((item) => item && typeof item.memberName === 'string' && item.status === 'sealed');
     }
-    // If empty array, re-initialize with default founding members
     saveMembers(defaultFoundingMembers);
     return defaultFoundingMembers;
   } catch (err) {
@@ -189,7 +160,7 @@ export function clearCurrentSession(): void {
   } catch {}
 }
 
-// Reset all application data back to default founding team
+// Reset all application data back to leader only
 export function resetAllData(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
