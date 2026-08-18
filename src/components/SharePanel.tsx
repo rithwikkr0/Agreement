@@ -1,16 +1,54 @@
 import React, { useState } from 'react';
-import { Share2, Download, Copy, Check, FileText, AlertTriangle } from 'lucide-react';
+import { Share2, Download, Copy, Check, FileText, AlertTriangle, Link as LinkIcon, Users } from 'lucide-react';
 import type { AgreementData } from '../services/agreement';
 import { generateCovenantPDFBlob, downloadCovenantPDF } from '../services/pdf';
+import { generateMemberSyncLink, encodeAgreementToken } from '../services/agreement';
 
 interface SharePanelProps {
   member: AgreementData;
 }
 
 export default function SharePanel({ member }: SharePanelProps) {
-  const [copied, setCopied] = useState(false);
+  const [copiedSync, setCopiedSync] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'info' | 'success' | 'warn'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showAdvancedToken, setShowAdvancedToken] = useState(false);
+
+  const syncLink = generateMemberSyncLink(member);
+  const syncToken = encodeAgreementToken(member);
+
+  const handleCopySyncLink = () => {
+    navigator.clipboard.writeText(syncLink);
+    setCopiedSync(true);
+    setStatusMessage({
+      type: 'success',
+      text: 'Sync link copied to clipboard! Share this link with your team leader or group chat. When they open it, your seal will automatically appear in their team slots!',
+    });
+    setTimeout(() => setCopiedSync(false), 4000);
+  };
+
+  const handleShareSyncLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `The Imperial Covenant — ${member.memberName}'s Sealed Oath`,
+          text: `I have sealed the Imperial Covenant for ${member.memberName} (ID: ${member.agreementId}). Tap this link to sync my seal into your team slots:`,
+          url: syncLink,
+        });
+        setStatusMessage({
+          type: 'success',
+          text: 'Sync link shared with your team!',
+        });
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          handleCopySyncLink();
+        }
+      }
+    } else {
+      handleCopySyncLink();
+    }
+  };
 
   const handleDownloadPDF = async () => {
     setIsProcessing(true);
@@ -19,7 +57,7 @@ export default function SharePanel({ member }: SharePanelProps) {
       await downloadCovenantPDF(member);
       setStatusMessage({
         type: 'success',
-        text: `The official certificate 'Covenant-${member.memberName.replace(/\s+/g, '-')}-${member.agreementId}.pdf' has been generated and downloaded.`,
+        text: `Official certificate 'Covenant-${member.memberName.replace(/\s+/g, '-')}-${member.agreementId}.pdf' downloaded successfully.`,
       });
     } catch (err) {
       console.error('PDF download error:', err);
@@ -32,11 +70,10 @@ export default function SharePanel({ member }: SharePanelProps) {
     }
   };
 
-  const handleShare = async () => {
+  const handleSharePDF = async () => {
     setIsProcessing(true);
     setStatusMessage(null);
     try {
-      // 1. Generate real PDF File object
       const { file, fileName } = await generateCovenantPDFBlob(member);
 
       const sharePayload = {
@@ -45,7 +82,6 @@ export default function SharePanel({ member }: SharePanelProps) {
         files: [file],
       };
 
-      // 2. Test if browser can share files directly
       if (
         navigator.share &&
         navigator.canShare &&
@@ -55,24 +91,22 @@ export default function SharePanel({ member }: SharePanelProps) {
           await navigator.share(sharePayload);
           setStatusMessage({
             type: 'success',
-            text: 'Official Covenant PDF shared successfully!',
+            text: 'Official Covenant PDF certificate shared successfully!',
           });
         } catch (shareErr: any) {
           if (shareErr.name !== 'AbortError') {
-            // Fallback to downloading
             await downloadCovenantPDF(member);
             setStatusMessage({
               type: 'info',
-              text: 'Direct file sharing was cancelled or unsupported. The official PDF has been downloaded to your device so you can share it manually.',
+              text: 'Direct PDF sharing was cancelled. The official PDF has been downloaded to your device so you can send it manually.',
             });
           }
         }
       } else {
-        // Fallback to downloading PDF
         await downloadCovenantPDF(member);
         setStatusMessage({
           type: 'info',
-          text: `Your browser does not support direct PDF file sharing. The official PDF (${fileName}) has been downloaded to your device so you can send it manually.`,
+          text: `Your browser does not support direct file sharing. The official PDF (${fileName}) has been downloaded to your device.`,
         });
       }
     } catch (err) {
@@ -87,40 +121,41 @@ export default function SharePanel({ member }: SharePanelProps) {
     }
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(
-      `${window.location.origin}${window.location.pathname}?covenant_id=${member.agreementId}`
-    );
-    setCopied(true);
-    setStatusMessage({
-      type: 'info',
-      text: 'Covenant page link copied. Note: For complete data privacy ($0 server cost), the official PDF document is the canonical portable record to share with teammates.',
-    });
-    setTimeout(() => setCopied(false), 3000);
-  };
-
   return (
-    <div className="w-full max-w-lg mx-auto mt-6 p-6 rounded-sm glass-dark imperial-border text-center shadow-2xl">
-      <h4 className="font-cinzel text-base font-bold text-ivory tracking-wide mb-1.5">
-        PRESERVE & SHARE YOUR SEAL
-      </h4>
-      <p className="text-xs text-aged-paper/70 font-noto mb-6">
-        Export your 3-page official certificate PDF or share it with your team.
-      </p>
+    <div className="w-full max-w-xl mx-auto mt-6 p-6 sm:p-8 rounded-sm glass-dark imperial-border text-center shadow-2xl space-y-5">
+      {/* Primary Callout: Sync With Team */}
+      <div className="p-4 rounded bg-imperial-gold/15 border border-imperial-gold/40 text-left space-y-2">
+        <div className="flex items-center gap-2 text-bright-gold font-cinzel text-xs font-bold uppercase">
+          <Users className="w-4 h-4" />
+          <span>JOIN YOUR TEAM'S SLOTS</span>
+        </div>
+        <p className="text-xs text-ivory/90 font-noto leading-relaxed">
+          Send your <strong>Team Sync Link</strong> to your group chat or team leader. When they open it, your seal will instantly be inscribed into their team registry slots!
+        </p>
 
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-        {/* Native Web Share with PDF File */}
-        <button
-          type="button"
-          onClick={handleShare}
-          disabled={isProcessing}
-          className="w-full sm:w-auto btn-imperial px-5 py-2.5 rounded text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
-        >
-          <Share2 className="w-4 h-4" />
-          <span>{isProcessing ? 'PREPARING...' : 'SHARE PDF'}</span>
-        </button>
+        <div className="pt-2 flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={handleShareSyncLink}
+            className="btn-imperial px-4 py-2.5 rounded text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md flex-1"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>SHARE SYNC LINK</span>
+          </button>
 
-        {/* Direct PDF Download */}
+          <button
+            type="button"
+            onClick={handleCopySyncLink}
+            className="px-4 py-2.5 rounded bg-black/60 text-bright-gold hover:text-white border border-imperial-gold/40 hover:border-imperial-gold flex items-center justify-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer flex-1"
+          >
+            {copiedSync ? <Check className="w-4 h-4 text-jade" /> : <Copy className="w-4 h-4" />}
+            <span>{copiedSync ? 'LINK COPIED!' : 'COPY SYNC LINK'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* PDF Export Section */}
+      <div className="pt-2 border-t border-imperial-gold/15 flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           type="button"
           onClick={handleDownloadPDF}
@@ -128,20 +163,55 @@ export default function SharePanel({ member }: SharePanelProps) {
           className="w-full sm:w-auto btn-vermilion px-5 py-2.5 rounded text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
-          <span>DOWNLOAD PDF</span>
+          <span>DOWNLOAD 4-PAGE PDF</span>
         </button>
 
-        {/* Copy Page Link */}
         <button
           type="button"
-          onClick={handleCopyLink}
+          onClick={handleSharePDF}
+          disabled={isProcessing}
           className="w-full sm:w-auto px-4 py-2.5 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/30 hover:border-imperial-gold flex items-center justify-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer"
         >
-          {copied ? <Check className="w-4 h-4 text-jade" /> : <Copy className="w-4 h-4" />}
-          <span>{copied ? 'LINK COPIED' : 'COPY PAGE LINK'}</span>
+          <FileText className="w-4 h-4 text-bright-gold" />
+          <span>SHARE PDF FILE</span>
         </button>
       </div>
 
+      {/* Advanced Sync Token toggle */}
+      <div className="pt-1">
+        <button
+          type="button"
+          onClick={() => setShowAdvancedToken(!showAdvancedToken)}
+          className="text-[11px] font-cinzel text-imperial-gold/60 hover:text-bright-gold underline transition-colors cursor-pointer"
+        >
+          {showAdvancedToken ? 'Hide Manual Sync Code' : 'Need manual sync code? (Click here)'}
+        </button>
+
+        {showAdvancedToken && (
+          <div className="mt-3 p-3 rounded bg-black/70 border border-imperial-gold/25 text-left text-[11px] font-mono space-y-2">
+            <span className="text-imperial-gold font-cinzel text-[10px] uppercase font-bold block">
+              YOUR SEAL SYNC CODE:
+            </span>
+            <div className="p-2 bg-black/50 rounded border border-white/10 break-all select-all text-aged-paper/80 max-h-20 overflow-y-auto">
+              {syncToken}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(syncToken);
+                setCopiedToken(true);
+                setTimeout(() => setCopiedToken(false), 3000);
+              }}
+              className="text-xs font-cinzel text-bright-gold hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              {copiedToken ? <Check className="w-3.5 h-3.5 text-jade" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedToken ? 'Code Copied!' : 'Copy Code'}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Status Feedback Message */}
       {statusMessage && (
         <div
           className={`mt-4 p-3.5 rounded text-left flex items-start gap-2.5 text-xs font-noto leading-relaxed animate-fade-up ${

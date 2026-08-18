@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { AgreementData } from '../services/agreement';
-import { exportMembersJSON, resetAllData } from '../services/storage';
+import { exportMembersJSON, resetAllData, importSingleMember, importMultipleMembers } from '../services/storage';
 import { downloadCovenantPDF } from '../services/pdf';
 import { teamConfig } from '../config/team';
 import ImperialSeal from './ImperialSeal';
@@ -13,9 +13,19 @@ import {
   Clock,
   Eye,
   AlertTriangle,
-  Lock,
+  PlusCircle,
+  Share2,
+  Copy,
+  Check,
+  Upload,
 } from 'lucide-react';
-import { formatImperialDate, formatImperialTime } from '../services/agreement';
+import {
+  formatImperialDate,
+  formatImperialTime,
+  generateTeamSyncLink,
+  decodeAgreementToken,
+  decodeTeamRegistryToken,
+} from '../services/agreement';
 
 interface AdminDashboardProps {
   members: AgreementData[];
@@ -31,6 +41,12 @@ export default function AdminDashboard({
   onViewMember,
 }: AdminDashboardProps) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importInput, setImportInput] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [copiedTeamLink, setCopiedTeamLink] = useState(false);
+
   const maxMembers = teamConfig.maximumMembers || 10;
   const sealedCount = members.filter((m) => m.status === 'sealed').length;
 
@@ -53,6 +69,114 @@ export default function AdminDashboard({
     onRefreshData();
   };
 
+  const handleManualImport = () => {
+    setImportError(null);
+    setImportSuccess(null);
+
+    const input = importInput.trim();
+    if (!input) {
+      setImportError('Please enter a sync link, token, or JSON payload.');
+      return;
+    }
+
+    try {
+      if (input.includes('sync_seal=')) {
+        const token = input.split('sync_seal=')[1].split('&')[0];
+        const member = decodeAgreementToken(token);
+        if (member) {
+          const res = importSingleMember(member);
+          if (res.success) {
+            setImportSuccess(res.message);
+            setImportInput('');
+            onRefreshData();
+            return;
+          } else {
+            setImportError(res.message);
+            return;
+          }
+        }
+      }
+
+      if (input.includes('sync_team=')) {
+        const token = input.split('sync_team=')[1].split('&')[0];
+        const incoming = decodeTeamRegistryToken(token);
+        if (incoming.length > 0) {
+          const res = importMultipleMembers(incoming);
+          setImportSuccess(`Synced ${res.addedCount} new member(s)!`);
+          setImportInput('');
+          onRefreshData();
+          return;
+        }
+      }
+
+      const singleMember = decodeAgreementToken(input);
+      if (singleMember) {
+        const res = importSingleMember(singleMember);
+        if (res.success) {
+          setImportSuccess(res.message);
+          setImportInput('');
+          onRefreshData();
+          return;
+        } else {
+          setImportError(res.message);
+          return;
+        }
+      }
+
+      const teamMembers = decodeTeamRegistryToken(input);
+      if (teamMembers.length > 0) {
+        const res = importMultipleMembers(teamMembers);
+        setImportSuccess(`Synced ${res.addedCount} member(s)!`);
+        setImportInput('');
+        onRefreshData();
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(input);
+        if (parsed && parsed.memberName) {
+          const res = importSingleMember(parsed as AgreementData);
+          if (res.success) {
+            setImportSuccess(res.message);
+            setImportInput('');
+            onRefreshData();
+            return;
+          }
+        } else if (parsed && Array.isArray(parsed.members)) {
+          const res = importMultipleMembers(parsed.members);
+          setImportSuccess(`Synced ${res.addedCount} member(s)!`);
+          setImportInput('');
+          onRefreshData();
+          return;
+        }
+      } catch {}
+
+      setImportError('Unrecognized sync format. Please paste a valid sync link or code.');
+    } catch {
+      setImportError('Failed to import data.');
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      setImportInput(content);
+    };
+    reader.readAsText(file);
+  };
+
+  const teamSyncLink = generateTeamSyncLink(members);
+
+  const handleCopyTeamSyncLink = () => {
+    navigator.clipboard.writeText(teamSyncLink);
+    setCopiedTeamLink(true);
+    setTimeout(() => setCopiedTeamLink(false), 3000);
+  };
+
   // Build rows up to maxMembers
   const slots = Array.from({ length: maxMembers }).map((_, i) => {
     return members[i] || null;
@@ -71,11 +195,31 @@ export default function AdminDashboard({
           <span>RETURN TO COVENANT</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="px-3.5 py-2 rounded bg-imperial-gold/20 text-bright-gold hover:text-white border border-imperial-gold/40 hover:border-imperial-gold flex items-center gap-1.5 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>IMPORT SEAL</span>
+          </button>
+
+          {sealedCount > 0 && (
+            <button
+              type="button"
+              onClick={handleCopyTeamSyncLink}
+              className="px-3.5 py-2 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/30 hover:border-imperial-gold flex items-center gap-1.5 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
+            >
+              {copiedTeamLink ? <Check className="w-4 h-4 text-jade" /> : <Share2 className="w-4 h-4" />}
+              <span>{copiedTeamLink ? 'LINK COPIED' : 'SHARE TEAM LINK'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleExportJSON}
-            className="px-4 py-2 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/30 hover:border-imperial-gold flex items-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
+            className="px-3.5 py-2 rounded bg-black/60 text-aged-paper hover:text-ivory border border-imperial-gold/30 hover:border-imperial-gold flex items-center gap-1.5 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
           >
             <FileCode className="w-4 h-4 text-bright-gold" />
             <span>EXPORT JSON</span>
@@ -84,10 +228,10 @@ export default function AdminDashboard({
           <button
             type="button"
             onClick={() => setShowResetConfirm(true)}
-            className="px-4 py-2 rounded bg-ancient-red/25 text-vermilion hover:text-white border border-ancient-red/40 hover:border-vermilion flex items-center gap-2 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
+            className="px-3.5 py-2 rounded bg-ancient-red/25 text-vermilion hover:text-white border border-ancient-red/40 hover:border-vermilion flex items-center gap-1.5 text-xs font-cinzel tracking-wider transition-colors cursor-pointer shadow"
           >
             <Trash2 className="w-4 h-4" />
-            <span>RESET LOCAL REGISTRY</span>
+            <span>RESET</span>
           </button>
         </div>
       </div>
@@ -222,6 +366,80 @@ export default function AdminDashboard({
           </table>
         </div>
       </div>
+
+      {/* MODAL 1: Import Member */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass-dark imperial-border p-6 sm:p-8 rounded max-w-lg w-full text-left space-y-4 animate-fade-up shadow-2xl">
+            <div className="flex items-center justify-between border-b border-imperial-gold/20 pb-3">
+              <h3 className="font-cinzel text-base font-bold text-bright-gold flex items-center gap-2">
+                <PlusCircle className="w-5 h-5 text-bright-gold" />
+                <span>IMPORT MEMBER SEAL TO REGISTRY</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportError(null);
+                  setImportSuccess(null);
+                }}
+                className="text-aged-paper/50 hover:text-ivory text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-aged-paper/80 font-noto leading-relaxed">
+              Paste a teammate's <strong>Sync Link</strong> or <strong>Sync Code</strong> below to import their sealed covenant into your local registry slots.
+            </p>
+
+            <div>
+              <textarea
+                value={importInput}
+                onChange={(e) => setImportInput(e.target.value)}
+                placeholder="Paste link e.g. https://.../?sync_seal=... or code token"
+                className="parchment-input w-full p-3 text-xs font-mono h-24 rounded focus:ring-2 focus:ring-imperial-gold"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-imperial-gold/70 hover:text-bright-gold flex items-center gap-1.5 cursor-pointer underline font-noto">
+                <Upload className="w-3.5 h-3.5" />
+                <span>Upload JSON file</span>
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={handleManualImport}
+                disabled={!importInput.trim()}
+                className="btn-imperial px-6 py-2 rounded text-xs font-bold disabled:opacity-40 cursor-pointer shadow"
+              >
+                IMPORT TO SLOTS
+              </button>
+            </div>
+
+            {importSuccess && (
+              <div className="p-3 rounded bg-jade/20 border border-jade/40 text-xs text-ivory font-noto flex items-start gap-2">
+                <Check className="w-4 h-4 text-jade shrink-0 mt-0.5" />
+                <span>{importSuccess}</span>
+              </div>
+            )}
+
+            {importError && (
+              <div className="p-3 rounded bg-ancient-red/20 border border-vermilion text-xs text-ivory font-noto flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-vermilion shrink-0 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (

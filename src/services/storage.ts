@@ -24,7 +24,7 @@ export function loadMembers(): AgreementData[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      return parsed.filter((item) => item && typeof item.memberName === 'string');
+      return parsed.filter((item) => item && typeof item.memberName === 'string' && item.status === 'sealed');
     }
     return [];
   } catch (err) {
@@ -46,18 +46,63 @@ export function saveMembers(members: AgreementData[]): boolean {
 
 // Upsert a member (enforcing max 10 members limit)
 export function upsertMember(member: AgreementData): boolean {
+  if (!member || !member.memberName) return false;
   const members = loadMembers();
-  const idx = members.findIndex((m) => m.memberId === member.memberId || m.agreementId === member.agreementId);
+  const idx = members.findIndex(
+    (m) => m.memberId === member.memberId || m.agreementId === member.agreementId || m.memberName.toLowerCase().trim() === member.memberName.toLowerCase().trim()
+  );
   if (idx >= 0) {
-    members[idx] = member;
+    members[idx] = { ...members[idx], ...member, status: 'sealed' };
   } else {
     if (members.length >= 10) {
       console.warn('Registry full. Maximum 10 members allowed.');
       return false;
     }
-    members.push(member);
+    members.push({ ...member, status: 'sealed' });
   }
   return saveMembers(members);
+}
+
+// Import a single member with status feedback
+export function importSingleMember(member: AgreementData): { success: boolean; isNew: boolean; message: string } {
+  if (!member || !member.memberName || !member.agreementId) {
+    return { success: false, isNew: false, message: 'Invalid member seal payload.' };
+  }
+
+  const members = loadMembers();
+  const existingIdx = members.findIndex(
+    (m) => m.agreementId === member.agreementId || m.memberName.toLowerCase().trim() === member.memberName.toLowerCase().trim()
+  );
+
+  if (existingIdx >= 0) {
+    members[existingIdx] = { ...members[existingIdx], ...member, status: 'sealed' };
+    saveMembers(members);
+    return { success: true, isNew: false, message: `Updated member record for ${member.memberName}.` };
+  }
+
+  if (members.length >= 10) {
+    return { success: false, isNew: false, message: 'Covenant Registry is full (10/10 members).' };
+  }
+
+  members.push({ ...member, status: 'sealed' });
+  saveMembers(members);
+  return { success: true, isNew: true, message: `Added ${member.memberName} to the Covenant Registry!` };
+}
+
+// Import multiple members (for bulk sync)
+export function importMultipleMembers(incoming: AgreementData[]): { addedCount: number; updatedCount: number } {
+  let addedCount = 0;
+  let updatedCount = 0;
+
+  incoming.forEach((member) => {
+    const result = importSingleMember(member);
+    if (result.success) {
+      if (result.isNew) addedCount++;
+      else updatedCount++;
+    }
+  });
+
+  return { addedCount, updatedCount };
 }
 
 // Get single member by ID

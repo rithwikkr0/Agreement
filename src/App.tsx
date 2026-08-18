@@ -8,9 +8,18 @@ import FinalCeremony from './components/FinalCeremony';
 import AdminDashboard from './components/AdminDashboard';
 import FloatingNav from './components/FloatingNav';
 import PrivacyNotice from './components/PrivacyNotice';
-import { loadMembers, getMember } from './services/storage';
-import type { AgreementData } from './services/agreement';
-import { Sparkles, Scroll, Crown, Shield } from 'lucide-react';
+import {
+  loadMembers,
+  getMember,
+  importSingleMember,
+  importMultipleMembers,
+} from './services/storage';
+import {
+  decodeAgreementToken,
+  decodeTeamRegistryToken,
+  type AgreementData,
+} from './services/agreement';
+import { Sparkles, Scroll, Crown, Shield, CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
   const [members, setMembers] = useState<AgreementData[]>([]);
@@ -18,14 +27,60 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [activeSection, setActiveSection] = useState('hero');
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
+  const [syncAlert, setSyncAlert] = useState<{ title: string; subtitle: string } | null>(null);
 
-  // Load saved members on mount
+  // Check URL parameters for peer-to-peer sync
   useEffect(() => {
     refreshMembers();
 
-    // Check if covenant_id query parameter is present in URL
     try {
-      const params = new URLSearchParams(window.location.search);
+      const search = window.location.search;
+      const hash = window.location.hash;
+      const params = new URLSearchParams(search);
+
+      // 1. Single Member Sync Link: ?sync_seal=... or #sync_seal=...
+      let singleSealToken = params.get('sync_seal');
+      if (!singleSealToken && hash.includes('sync_seal=')) {
+        singleSealToken = hash.split('sync_seal=')[1].split('&')[0];
+      }
+
+      if (singleSealToken) {
+        const member = decodeAgreementToken(singleSealToken);
+        if (member) {
+          const res = importSingleMember(member);
+          if (res.success) {
+            setSyncAlert({
+              title: `👑 Sealed Oath Inscribed: ${member.memberName}!`,
+              subtitle: `${member.memberName} has been successfully added to your Team Covenant slots.`,
+            });
+            refreshMembers();
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+      }
+
+      // 2. Full Team Sync Link: ?sync_team=... or #sync_team=...
+      let teamSyncToken = params.get('sync_team');
+      if (!teamSyncToken && hash.includes('sync_team=')) {
+        teamSyncToken = hash.split('sync_team=')[1].split('&')[0];
+      }
+
+      if (teamSyncToken) {
+        const incoming = decodeTeamRegistryToken(teamSyncToken);
+        if (incoming.length > 0) {
+          const res = importMultipleMembers(incoming);
+          setSyncAlert({
+            title: `📜 Team Registry Ledger Synced!`,
+            subtitle: `Successfully synchronized ${res.addedCount} new member(s) into your team slots.`,
+          });
+          refreshMembers();
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+
+      // 3. View individual covenant ID: ?covenant_id=...
       const covenantId = params.get('covenant_id');
       if (covenantId) {
         const found = getMember(covenantId);
@@ -33,7 +88,9 @@ export default function App() {
           setViewingMember(found);
         }
       }
-    } catch {}
+    } catch (err) {
+      console.warn('URL sync processing error:', err);
+    }
   }, []);
 
   // Desktop subtle gold cursor glow tracking
@@ -145,6 +202,31 @@ export default function App() {
         </div>
       </header>
 
+      {/* Floating Sync Notification Banner */}
+      {syncAlert && (
+        <div className="fixed top-16 left-4 right-4 max-w-xl mx-auto z-50 p-4 rounded-sm bg-obsidian/95 border-2 border-bright-gold shadow-2xl backdrop-blur-md animate-fade-up flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-jade shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-cinzel text-sm font-bold text-bright-gold">
+                {syncAlert.title}
+              </h4>
+              <p className="text-xs text-aged-paper/90 font-noto mt-0.5 leading-relaxed">
+                {syncAlert.subtitle}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSyncAlert(null)}
+            className="text-aged-paper/50 hover:text-ivory p-1 cursor-pointer"
+            aria-label="Dismiss notification"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Main Content Sections */}
       <main className="pt-12">
         {showAdmin ? (
@@ -182,6 +264,7 @@ export default function App() {
             <TeamRegistry
               members={members}
               onSelectMember={(member) => setViewingMember(member)}
+              onRefreshData={refreshMembers}
             />
 
             {/* 5. Ritual Signing Ceremony (5-Step Inscription) */}

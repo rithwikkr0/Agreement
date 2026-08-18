@@ -80,8 +80,8 @@ export function formatImperialTime(isoString: string): string {
 // Client-side image resizing & optimization helper
 export async function optimizeImage(
   dataUrl: string,
-  maxWidth = 800,
-  maxHeight = 800,
+  maxWidth = 600,
+  maxHeight = 600,
   quality = 0.85
 ): Promise<string> {
   return new Promise((resolve) => {
@@ -115,4 +115,115 @@ export async function optimizeImage(
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
   });
+}
+
+// ═══════════════════════════════════════════════════
+//  PEER-TO-PEER COVENANT SYNC CODECS
+//  Enables sharing and syncing member seals across devices without a server
+// ═══════════════════════════════════════════════════
+
+// UTF-8 safe base64 encoding
+function utf8ToBase64(str: string): string {
+  return btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
+      return String.fromCharCode(parseInt(p1, 16));
+    })
+  );
+}
+
+// UTF-8 safe base64 decoding
+function base64ToUtf8(str: string): string {
+  return decodeURIComponent(
+    Array.prototype.map
+      .call(atob(str), (c: string) => {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      })
+      .join('')
+  );
+}
+
+// Encode single member into a URL-safe sync token
+export function encodeAgreementToken(member: AgreementData): string {
+  try {
+    const payload = JSON.stringify({
+      t: 'member',
+      d: member,
+    });
+    return encodeURIComponent(utf8ToBase64(payload));
+  } catch (err) {
+    console.error('Failed to encode agreement token:', err);
+    return '';
+  }
+}
+
+// Decode single member from a sync token
+export function decodeAgreementToken(token: string): AgreementData | null {
+  try {
+    const cleanToken = decodeURIComponent(token.trim());
+    const jsonStr = base64ToUtf8(cleanToken);
+    const parsed = JSON.parse(jsonStr);
+
+    if (parsed && parsed.t === 'member' && parsed.d && parsed.d.memberName) {
+      return parsed.d as AgreementData;
+    }
+    if (parsed && parsed.memberName && parsed.agreementId) {
+      return parsed as AgreementData;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to decode agreement token:', err);
+    return null;
+  }
+}
+
+// Encode full team registry into a team sync token
+export function encodeTeamRegistryToken(members: AgreementData[]): string {
+  try {
+    const sealedMembers = members.filter((m) => m.status === 'sealed');
+    const payload = JSON.stringify({
+      t: 'registry',
+      d: sealedMembers,
+    });
+    return encodeURIComponent(utf8ToBase64(payload));
+  } catch (err) {
+    console.error('Failed to encode registry token:', err);
+    return '';
+  }
+}
+
+// Decode team registry from a sync token
+export function decodeTeamRegistryToken(token: string): AgreementData[] {
+  try {
+    const cleanToken = decodeURIComponent(token.trim());
+    const jsonStr = base64ToUtf8(cleanToken);
+    const parsed = JSON.parse(jsonStr);
+
+    if (parsed && parsed.t === 'registry' && Array.isArray(parsed.d)) {
+      return parsed.d as AgreementData[];
+    }
+    if (parsed && Array.isArray(parsed.members)) {
+      return parsed.members as AgreementData[];
+    }
+    if (Array.isArray(parsed)) {
+      return parsed as AgreementData[];
+    }
+    return [];
+  } catch (err) {
+    console.warn('Failed to decode registry token:', err);
+    return [];
+  }
+}
+
+// Generate the complete shareable link for a member to join slots
+export function generateMemberSyncLink(member: AgreementData): string {
+  const token = encodeAgreementToken(member);
+  const baseUrl = `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '') + '/';
+  return `${baseUrl}?sync_seal=${token}`;
+}
+
+// Generate the complete shareable link for all team slots
+export function generateTeamSyncLink(members: AgreementData[]): string {
+  const token = encodeTeamRegistryToken(members);
+  const baseUrl = `${window.location.origin}${window.location.pathname}`.replace(/\/+$/, '') + '/';
+  return `${baseUrl}?sync_team=${token}`;
 }
